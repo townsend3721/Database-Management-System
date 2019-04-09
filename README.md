@@ -49,13 +49,13 @@ cd cs186
 
 Clone the HW5 repo:
 ```
-git clone https://github.com/berkeley-cs186/Fa18HW5.git
+git clone https://github.com/berkeley-cs186/Sp19HW5.git
 ```
 If you get an error like: `Could not resolve host: github.com`, try restarting your docker machine (run `docker-machine restart` after exiting the docker container), and if that doesn't work restart your entire computer.
 
 If you get an error like fatal: could not create work tree dir: Permission denied, run
 ```
-sudo git clone https://github.com/berkeley-cs186/Fa18HW5.git
+sudo git clone https://github.com/berkeley-cs186/Sp19HW5.git
 ```
 
 Before submitting your assignment you must run `mvn clean test` and ensure it works in the docker container.
