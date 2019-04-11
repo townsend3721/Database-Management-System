@@ -168,8 +168,7 @@ Things that you might consider testing for include: anything that we specify in 
 that you don't see a test already testing for, and any edge cases that you can think of. Think of what valid inputs
 might break your code and cause it not to perform as intended, and add a test to make sure things are working.
 
-To help you get started, here is one case that is **not** in the given tests (and will be included in the hidden tests): when adding
-a record in a table with multiple indices, you must lock all of the indices before adding anything.
+To help you get started, here is one case that is **not** in the given tests (and will be included in the hidden tests): deleting a table that does not exist should still result in a lock being obtained.
 
 To add a unit test, open up the appropriate test file (all test files are located in `src/test/java/edu/berkeley/cs186/database`
 or subdirectories of it), and simply add a new method to the test class, for example:
