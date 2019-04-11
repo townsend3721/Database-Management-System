@@ -225,9 +225,9 @@ get a lock on the whole tree to begin with). This is no better for concurrency, 
 First, modify BPlusTree constructors to disable locking at lower granularities
 (take a look at the methods in `LockContext` for this).
 
-Then, preemptively acquire locks on relevant indices in the following
+Then, preemptively acquire locks in the following
 methods in `BPlusTree`: `scanEqual`, `scanAll`, `scanGreaterEqual`, `put`, `bulkLoad`, `remove`,
-`toSexp`, `toDot`; and the constructors of `BPlusTree`. (Which indices are relevant for each operation?)
+`toSexp`, `toDot`; and the constructors of `BPlusTree`.
 
 You should modify `database/index/BPlusTree.java` for this task, and
 should pass `testBPlusTreeRestrict`, `testSortedScanLocking`, `testSearchOperationLocking`, and `testQueryWithIndex`
