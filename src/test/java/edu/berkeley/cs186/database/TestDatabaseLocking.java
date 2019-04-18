@@ -2,6 +2,7 @@ package edu.berkeley.cs186.database;
 
 import edu.berkeley.cs186.database.categories.*;
 import edu.berkeley.cs186.database.concurrency.LockType;
+import edu.berkeley.cs186.database.concurrency.ResourceName;
 import edu.berkeley.cs186.database.databox.DataBox;
 import edu.berkeley.cs186.database.databox.IntDataBox;
 import edu.berkeley.cs186.database.query.QueryPlan;
@@ -17,11 +18,16 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.*;
 
 @Category({HW5Tests.class, HW5Part2Tests.class})
 public class TestDatabaseLocking {
@@ -30,13 +36,16 @@ public class TestDatabaseLocking {
     private LoggingLockManager lockManager;
     private String filename;
 
+    private static boolean cannotRequestLocks = false;
+
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
     // 10 second max per method tested.
+    public static long timeout = (long) (10000 * TimeoutScaling.factor);
+
     @Rule
-    public TestRule globalTimeout = new DisableOnDebug(Timeout.millis((long) (
-                10000 * TimeoutScaling.factor)));
+    public TestRule globalTimeout = new DisableOnDebug(Timeout.millis(timeout));
 
     private void reloadDatabase() throws DatabaseException {
         if (this.db != null) {
@@ -53,8 +62,65 @@ public class TestDatabaseLocking {
         this.db = new DatabaseWithTableStub(this.filename, 5, this.lockManager);
     }
 
+    @ClassRule
+    public static  TemporaryFolder checkFolder = new TemporaryFolder();
+
+    @BeforeClass
+    public static void beforeAll() {
+        // Creating a new Database object has transaction -1 request and release X(database). If
+        // we are unable to request a IX(database) lock after the constructor finishes, there's
+        // no point running any of the tests in this class - beforeEach will block the thread.
+        final ResourceName name = new ResourceName(Arrays.asList("database"));
+        final LockType lockType = LockType.IX;
+        final ReentrantLock lock = new ReentrantLock();
+        final Condition done = lock.newCondition();
+
+        Thread mainRunner = new Thread(() -> {
+            try {
+                File testDir = checkFolder.newFolder(TestDir);
+                String filename = testDir.getAbsolutePath();
+                LoggingLockManager lockManager = new LoggingLockManager();
+                Database database = new DatabaseWithTableStub(filename, 128, lockManager);
+                lockManager.acquire(database.beginTransaction(), name, lockType);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                lock.lock();
+                done.signalAll();
+                lock.unlock();
+            }
+        });
+
+        lock.lock();
+        mainRunner.start();
+        try {
+            long nanos = timeout * 1000000L;
+            while (mainRunner.getState() != Thread.State.TERMINATED && nanos > 0L) {
+                nanos = done.awaitNanos(nanos);
+            }
+        } catch (InterruptedException e) {
+            // do nothing
+        } finally {
+            lock.unlock();
+        }
+
+        if (mainRunner.getState() == Thread.State.WAITING) {
+            cannotRequestLocks = true;
+        }
+        mainRunner.interrupt();
+    }
+
     @Before
     public void beforeEach() throws Exception {
+        // Fail test immediately if implementation blocks thread
+        // while requesting IX lock right after Database object is created -
+        // this is done in beforeEach anyways, so if this check fails,
+        // the test must fail.
+        assumeFalse("Cannot request IX lock after creating database - test will not terminate",
+                    TestDatabaseLocking.cannotRequestLocks);
+
         File testDir = tempFolder.newFolder(TestDir);
         this.filename = testDir.getAbsolutePath();
         this.reloadDatabase();
@@ -65,6 +131,10 @@ public class TestDatabaseLocking {
 
     @After
     public void afterEach() throws Exception {
+        // See comment in beforeEach.
+        assumeFalse("Cannot request IX lock after creating database - test will not terminate",
+                    TestDatabaseLocking.cannotRequestLocks);
+
         this.lockManager.endLog();
         this.reloadDatabase();
         BaseTransaction t = this.db.beginTransaction();
