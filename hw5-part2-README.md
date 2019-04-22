@@ -226,7 +226,7 @@ First, modify BPlusTree constructors to disable locking at lower granularities
 (take a look at the methods in `LockContext` for this).
 
 Then, preemptively acquire locks in the following
-methods in `BPlusTree`: `scanEqual`, `scanAll`, `scanGreaterEqual`, `put`, `bulkLoad`, `remove`,
+methods in `BPlusTree`: `scanEqual`, `scanAll`, `scanGreaterEqual`, `get`, `put`, `bulkLoad`, `remove`,
 `toSexp`, `toDot`; and the constructors of `BPlusTree`.
 
 You should modify `database/index/BPlusTree.java` for this task, and
