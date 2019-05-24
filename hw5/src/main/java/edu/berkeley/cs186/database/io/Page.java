@@ -161,13 +161,13 @@ public class Page {
         }
 
         public Buffer get(byte[] dst, int offset, int length) {
-            LockUtil.ensureSufficientLockHeld(this.transaction, lockContext, LockType.S);
+            // TODO(hw5_part2): locking code here
             Page.this.readBytes(this.offset + offset, length, dst);
             return this;
         }
 
         public Buffer put(byte[] src, int offset, int length) {
-            LockUtil.ensureSufficientLockHeld(this.transaction, lockContext, LockType.X);
+            // TODO(hw5_part2): locking code here
             Page.this.writeBytes(this.offset + offset, length, src);
             return this;
         }

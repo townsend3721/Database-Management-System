@@ -224,7 +224,7 @@ public class LockManager {
         ResourceName name = lock.name;
         long transNum = lock.transactionNum;
         ResourceEntry resEnt = getResourceEntry(name);
-        List<Lock> resLocks = resEnt.locks;
+        List<Lock> resLocks = getLocks(name);
         if (resLocks.isEmpty()) {
             return null;
         }

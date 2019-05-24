@@ -281,7 +281,7 @@ public class Table implements Closeable {
      */
     public synchronized RecordId addRecord(BaseTransaction transaction,
                                            List<DataBox> values) throws DatabaseException {
-
+        // TODO(hw5_part2): modify for smarter locking
         Record record = schema.verify(values);
 
         // Get a free page, allocating a new one if necessary.
@@ -289,8 +289,6 @@ public class Table implements Closeable {
             freePageNums.add(allocator.allocPage(transaction));
         }
         Page page = allocator.fetchPage(transaction, freePageNums.first());
-        LockContext childLC = this.lockContext.childContext(page.getPageNum());
-        LockUtil.ensureSufficientLockHeld(transaction, childLC, LockType.X);
 
         // Find the first empty slot in the bitmap.
         // entry number of the first free slot and store it in entryNum; and (2) we
@@ -346,8 +344,6 @@ public class Table implements Closeable {
     public synchronized Record updateRecord(BaseTransaction transaction, List<DataBox> values,
                                             RecordId rid) throws DatabaseException {
         // TODO(hw5_part2): modify for smarter locking
-        LockContext childLC = this.lockContext.childContext(rid.getPageNum());
-        LockUtil.ensureSufficientLockHeld(transaction, childLC, LockType.X);
         validateRecordId(rid);
         Record newRecord = schema.verify(values);
         Record oldRecord = getRecord(transaction, rid);
@@ -367,8 +363,6 @@ public class Table implements Closeable {
     public synchronized Record deleteRecord(BaseTransaction transaction,
                                             RecordId rid) throws DatabaseException {
         // TODO(hw5_part2): modify for smarter locking
-        LockContext childLC = this.lockContext.childContext(rid.getPageNum());
-        LockUtil.ensureSufficientLockHeld(transaction, childLC, LockType.X);
         validateRecordId(rid);
         Page page = allocator.fetchPage(transaction, rid.getPageNum());
         Record record = getRecord(transaction, rid);
@@ -388,7 +382,6 @@ public class Table implements Closeable {
      */
     public synchronized void cleanup(BaseTransaction transaction) throws DatabaseException {
         // TODO(hw5_part2): modify for smarter locking
-        LockUtil.ensureSufficientLockHeld(transaction, lockContext, LockType.X);
         for (Integer pageNum : freePageNums) {
             allocator.freePage(transaction, pageNum);
         }
@@ -474,7 +467,7 @@ public class Table implements Closeable {
 
     // Iterators /////////////////////////////////////////////////////////////////
     public BacktrackingIterator<RecordId> ridIterator(BaseTransaction transaction) {
-        LockUtil.ensureSufficientLockHeld(transaction, this.lockContext, LockType.S);
+        // TODO(hw5_part2): reduce locking overhead for table scans
         return newTableIterator(transaction);
     }
 

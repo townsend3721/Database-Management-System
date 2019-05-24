@@ -27,8 +27,6 @@ import edu.berkeley.cs186.database.table.Table;
 import edu.berkeley.cs186.database.table.stats.TableStats;
 import edu.berkeley.cs186.database.io.PageAllocator.PageIterator;
 
-import javax.xml.crypto.Data;
-
 public class Database {
     private Map<String, Table> tableLookup;
     private Map<String, BPlusTree> indexLookup;
@@ -196,17 +194,10 @@ public class Database {
         }
 
         public void end() {
-            assert (this.active);
-            List<Lock> locks = lockManager.getLocks(this);
-            while (!locks.isEmpty()) {
-                for (Lock lock : locks) {
-                    LockContext lockContext = LockContext.fromResourceName(lockManager, lock.name);
-                    if (lockContext.saturation(this) == 0.0) {
-                        lockContext.release(this);
-                    }
-                }
-                locks = lockManager.getLocks(this);
-            }
+            assert(this.active);
+
+            // TODO(hw5_part2): release all locks
+
             deleteAllTempTables();
             this.active = false;
             Database.this.activeTransactions.remove(this.transNum);
@@ -223,7 +214,6 @@ public class Database {
             // TODO(hw5_part2): add DDL locking
 
             LockContext tableContext = getTableContext(tableName);
-            LockUtil.ensureSufficientLockHeld(activeTransactions.get(transNum), tableContext, LockType.X);
 
             if (Database.this.tableLookup.containsKey(tableName)) {
                 throw new DatabaseException("Table name already exists");
@@ -247,7 +237,6 @@ public class Database {
             // TODO(hw5_part2): add locking
 
             LockContext tableContext = getTableContext(tableName);
-            LockUtil.ensureSufficientLockHeld(activeTransactions.get(transNum), tableContext, LockType.X);
 
             List<String> schemaColNames = s.getFieldNames();
             List<Type> schemaColType = s.getFieldTypes();
@@ -302,8 +291,7 @@ public class Database {
             if (!Database.this.tableLookup.containsKey(tableName)) {
                 return false;
             }
-            LockContext tableContext = getTableContext(tableName);
-            LockUtil.ensureSufficientLockHeld(activeTransactions.get(transNum), tableContext, LockType.X);
+
             Database.this.tableLookup.get(tableName).close();
             Database.this.tableLookup.remove(tableName);
 
@@ -332,13 +320,7 @@ public class Database {
             // TODO(hw5_part2): add locking
 
             List<String> tableNames = new ArrayList<>(tableLookup.keySet());
-            if (tableNames.size() == 0) {
-                LockUtil.ensureSufficientLockHeld(activeTransactions.get(transNum), lockManager.databaseContext(), LockType.X);
-            }
-            for (String table : tableNames) {
-                LockContext lc = getTableContext(table);
-                LockUtil.ensureSufficientLockHeld(activeTransactions.get(transNum), lc, LockType.X);
-            }
+
             for (String s : tableNames) {
                 deleteTable(s);
             }
@@ -392,9 +374,6 @@ public class Database {
             Path path = Paths.get(Database.this.fileDir, "temp", tempTableName + Table.FILENAME_EXTENSION);
             LockContext lockContext = lockManager.orphanContext("temp-" + tempTableName);
             // TODO(hw5_part2): more efficient locking on temporary tables
-
-            LockUtil.ensureSufficientLockHeld(this, lockContext, LockType.X);
-            lockContext.disableChildLocks();
             this.tempTables.put(tempTableName, newTable(tempTableName, schema, path.toString(), lockContext,
                                 this));
         }
@@ -410,8 +389,7 @@ public class Database {
 
         public Iterator<Record> sortedScan(String tableName, String columnName) throws DatabaseException {
             Table tab = getTable(tableName);
-            LockContext lc = Database.this.getTableContext((tableName));
-            LockUtil.ensureSufficientLockHeld(this, lc, LockType.S);
+            // TODO(hw5_part2): scan locking
             try {
                 Pair<String, BPlusTree> index = resolveIndexFromName(tableName, columnName);
                 return new RecordIterator(this, tab, index.getSecond().scanAll(this));
@@ -430,10 +408,6 @@ public class Database {
                                                DataBox startValue) throws DatabaseException {
             Table tab = getTable(tableName);
             Pair<String, BPlusTree> index = resolveIndexFromName(tableName, columnName);
-
-            LockContext lc = Database.this.getTableContext((tableName));
-            LockUtil.ensureSufficientLockHeld(this, lc, LockType.S);
-
             // TODO(hw5_part2): scan locking
             return new RecordIterator(this, tab, index.getSecond().scanGreaterEqual(this, startValue));
         }

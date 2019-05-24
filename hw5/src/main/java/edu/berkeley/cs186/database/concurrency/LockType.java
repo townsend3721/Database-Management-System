@@ -111,5 +111,5 @@ public enum LockType {
         default: throw new UnsupportedOperationException("bad lock type");
         }
     }
-}
+};
 

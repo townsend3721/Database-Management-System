@@ -76,21 +76,21 @@ public class LockContext {
     }
 
 
-    public void removeChild(BaseTransaction transaction, LockContext parent) {
+    public void removeFromChild(BaseTransaction transaction, LockContext parent) {
         if (parent == null) {
             return;
         }
-        int numchildLocks = parent.numChildLocks.getOrDefault(transaction.getTransNum(), 0);
-        parent.numChildLocks.put(transaction.getTransNum(), numchildLocks - 1);
-        removeChild(transaction, parent.parent);
+        int numchidLocks = parent.numChildLocks.getOrDefault(transaction.getTransNum(), 0);
+        parent.numChildLocks.put(transaction.getTransNum(), numchidLocks - 1);
+        removeFromChild(transaction, parent.parent);
     }
-    public void addToParent(BaseTransaction transaction, LockContext parent) {
+    public void addFromChild(BaseTransaction transaction, LockContext parent) {
         if (parent == null) {
             return;
         }
         int numParentLocks = parent.numChildLocks.getOrDefault(transaction.getTransNum(), 0);
         parent.numChildLocks.put(transaction.getTransNum(), numParentLocks + 1);
-        addToParent(transaction, parent.parent);
+        addFromChild(transaction, parent.parent);
     }
 
     /**
@@ -115,20 +115,16 @@ public class LockContext {
         if (readonly) {
             throw new UnsupportedOperationException("This Resource is read only.");
         }
-        LockType locktype;
-
-        if (this.parent != null && this.parent.capacity() >= 10 && this.parent.saturation(transaction) >= .2) {
-            this.parent.escalate(transaction);
-        }
-        if (parent == null) {
-            locktype = LockType.NL;
+        LockType type;
+        if (this.parent == null) {
+            type = LockType.NL;
         }
         else {
-            locktype = parent.getExplicitLockType(transaction);
+            type = this.parent.getExplicitLockType(transaction);
         }
-        if (LockType.substitutable(locktype, LockType.parentLock(lockType)) || parent == null) {
+        if (LockType.substitutable(type, LockType.parentLock(lockType)) || this.parent == null) {
             lockman.acquire(transaction, name, lockType);
-            addToParent(transaction, this.parent);
+            addFromChild(transaction, this.parent);
         } else {
             throw new InvalidLockException("This is an invalid lock type request.");
         }
@@ -137,7 +133,7 @@ public class LockContext {
     public boolean child_of(ResourceName child, ResourceName parent) {
         LockContext parentLockContext = fromResourceName(lockman, parent);
         LockContext childLockContext = fromResourceName(lockman, child);
-        if ((parentLockContext.parent == childLockContext.parent)) {
+        if (parentLockContext.parent == childLockContext.parent) {
             return true;
         }
         if (((childLockContext.parent == null))) {
@@ -175,7 +171,7 @@ public class LockContext {
 
     private void releaseUpdate(BaseTransaction transaction) {
         lockman.release(transaction, name);
-        removeChild(transaction, parent);
+        removeFromChild(transaction, parent);
     }
     /**
      * Promote TRANSACTION's lock to NEWLOCKTYPE.
@@ -196,19 +192,7 @@ public class LockContext {
         if (readonly) {
             throw new UnsupportedOperationException("This resource is read only.");
         } else {
-            if (getEffectiveLockType(transaction) == newLockType) {
-                return;
-            }
-            LockType lt = getEffectiveLockType(transaction);
-            boolean updateChi = false;
-            if (lt == LockType.NL) {
-                updateChi = true;
-            }
             lockman.promote(transaction, name, newLockType);
-            if (updateChi) {
-                int numParentLocks = parent.numChildLocks.getOrDefault(transaction.getTransNum(), 0);
-                parent.numChildLocks.put(transaction.getTransNum(), numParentLocks + 1);
-            }
         }
     }
 
@@ -245,24 +229,19 @@ public class LockContext {
         }
 
         boolean upgrade = false;
-        boolean check = false;
         List<ResourceName> releases = new ArrayList<>();
         for (Lock lock : lockman.getLocks(transaction)) {
             if (!child_of(lock.name, name)) {
-                check = true;
-                continue;
+                return;
             }
             if (!(lock.lockType == LockType.IS || lock.lockType == LockType.S)) {
                 upgrade = true;
             }
             LockContext context = fromResourceName(lockman, lock.name);
             releases.add(lock.name);
-            removeChild(transaction, context);
-            check = false;
+            removeFromChild(transaction, context);
         }
-        if (check) {
-            return;
-        }
+
         if (upgrade) {
             upgradeAdd(transaction, LockType.X, releases);
         }
@@ -273,7 +252,7 @@ public class LockContext {
 
     public void upgradeAdd(BaseTransaction transaction, LockType locktype, List<ResourceName> releases) {
         lockman.acquireAndRelease(transaction, name, locktype, releases);
-        addToParent(transaction, this);
+        addFromChild(transaction, this);
     }
 
     /**

@@ -113,7 +113,7 @@ public class PageAllocator implements Closeable {
                 this.numUsedHeaderPages += 1;
             }
         }
-        lockContext.capacity(numPages + numUsedHeaderPages);
+
         // TODO(hw5_part2): any initialization of lock context (or none)
     }
 
@@ -172,8 +172,9 @@ public class PageAllocator implements Closeable {
         if (pageCounts[headerIndex] == 0) {
             this.numUsedHeaderPages += 1;
         }
-        lockContext.capacity(lockContext.capacity() + 1);
+
         // TODO(hw5_part2): any lock context changes needed
+
         return pageNum;
     }
 
@@ -273,7 +274,6 @@ public class PageAllocator implements Closeable {
         if (count == 1) {
             this.numUsedHeaderPages -= 1;
         }
-        lockContext.capacity(lockContext.capacity() - 1);
 
         // TODO(hw5_part2): any lock context changes needed
 
